@@ -16,3 +16,5 @@ FAISS file: faiss_index.bin
 Context stored: chunks.pkl
 
 Embeddings file: embeddings.npy
+
+Data used: https://oerpolicy.eu/wp-content/uploads/sites/4/2017/07/Open-Education-Handbook.pdf? (Open education handbook)
