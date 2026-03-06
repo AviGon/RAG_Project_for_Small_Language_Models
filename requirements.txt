@@ -7,3 +7,4 @@ pickle5
 transformers
 accelerate
 torch
+matplotlib
