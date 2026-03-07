@@ -1,6 +1,6 @@
 # RAG_Project_for_Small_Language_Models
 
-File order for FAISS (Both dense and sparse) (4 files + 1 sparse):
+# File order for FAISS (Both dense and sparse) (4 files + 1 sparse):
 
 Step 1: Extract and chunk from PDF
 python extract_and_chunk.py
@@ -26,7 +26,7 @@ python sparse_bm25.py search
 
 
 
-File order for Chroma db based (Both dense and sparse) (3 files + 1 sparse):
+#File order for Chroma db based (Both dense and sparse) (3 files + 1 sparse):
 
 Step 1: Extract and chunk from PDF
 python extract_and_chunk.py
