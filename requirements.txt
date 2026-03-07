@@ -1,9 +1,9 @@
 pymupdf
 sentence-transformers
 faiss-cpu
-numpy
+numpy<2
 tqdm
-pickle5
+# pickle
 transformers
 accelerate
 torch

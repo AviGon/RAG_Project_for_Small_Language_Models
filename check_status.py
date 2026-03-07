@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check the status of the RAG pipeline - what's been completed and what's missing.
+Check the status of the latency-focused RAG pipeline.
 """
 
 from pathlib import Path
@@ -45,7 +45,8 @@ def main():
     extract_exists = check_file("extract_and_chunk.py", "Extract & chunk script")
     embed_exists = check_file("generate_embeddings.py", "Embedding generator")
     index_exists = check_file("store_faiss_index.py", "FAISS indexer")
-    query_exists = check_file("query_and_generate.py", "Query system")
+    chroma_index_exists = check_file("store_chroma_index.py", "Chroma indexer")
+    query_exists = check_file("query_and_generate.py", "Interactive query system")
     
     # Check generated files
     print("\n📦 Generated Files (RAG Setup):")
@@ -54,19 +55,20 @@ def main():
     faiss_exists = check_file("faiss_index.bin", "FAISS index")
     metadata_exists = check_file("metadata.pkl", "Metadata")
     
-    # Check evaluation components
-    print("\n🎯 Evaluation System:")
+    # Check latency evaluation components
+    print("\n🎯 Latency Evaluation System:")
     eval_dataset = check_file("evaluation/dataset/evaluation_dataset.json", "Evaluation dataset")
-    eval_script = check_file("evaluation/experiments/run_baseline_eval.py", "Evaluation script")
-    viz_script = check_file("evaluation/visualizations/plot_results.py", "Visualization script")
+    eval_script = check_file("evaluation/experiments/latency_eval.py", "Latency evaluator")
+    compare_script = check_file("evaluation/experiments/compare_latency.py", "CPU/GPU comparison")
+    viz_script = check_file("evaluation/visualizations/plot_latency.py", "Latency visualization")
     
     # Check if evaluation has been run
     print("\n📊 Evaluation Results:")
-    summary_exists = check_file("evaluation/results/summary.json", "Summary results")
+    summary_exists = check_file("evaluation/results/latency", "Latency results folder")
     
     if summary_exists:
-        latency_exists = check_file("evaluation/results/latency_profiles/rag_latency.json", "Latency profiles")
-        viz_exists = check_file("evaluation/visualizations/latency_breakdown.png", "Visualizations")
+        cpu_exists = check_file("evaluation/results/latency", "Per-model latency outputs")
+        viz_exists = check_file("evaluation/visualizations/latency", "Latency visualizations")
     
     # Summary and recommendations
     print("\n" + "="*70)
@@ -89,6 +91,7 @@ def main():
         print("     python extract_and_chunk.py")
         print("     python generate_embeddings.py")
         print("     python store_faiss_index.py")
+        print("     python store_chroma_index.py")
         
         # Show what's missing
         if not chunks_exists:
@@ -100,37 +103,21 @@ def main():
     
     elif not eval_complete:
         print("\n✓ RAG setup complete!")
-        print("\n📋 Next steps - Run evaluation:")
-        print("   python evaluation/experiments/run_baseline_eval.py")
+        print("\n📋 Next steps - Run latency evaluation:")
+        print("   python evaluation/experiments/compare_latency.py --visualize")
         print("\n   Or run full pipeline:")
         print("   python run_full_pipeline.py --skip-setup")
     
     else:
         print("\n✅ Everything complete!")
-        print("\n📊 Your results are ready:")
-        print("   - Summary: evaluation/results/summary.json")
-        print("   - Details: evaluation/results/generation_quality/")
-        print("   - Plots: evaluation/visualizations/")
-        
-        # Show summary metrics if available
-        try:
-            with open("evaluation/results/summary.json", 'r') as f:
-                summary = json.load(f)
-            
-            rag_rouge = summary['overall']['rag'].get('rouge_l_mean', 0)
-            no_rag_rouge = summary['overall']['no_rag'].get('rouge_l_mean', 0)
-            improvement = ((rag_rouge - no_rag_rouge) / no_rag_rouge * 100) if no_rag_rouge > 0 else 0
-            
-            print("\n📈 Quick Results:")
-            print(f"   RAG ROUGE-L:    {rag_rouge:.4f}")
-            print(f"   No-RAG ROUGE-L: {no_rag_rouge:.4f}")
-            print(f"   Improvement:    +{improvement:.1f}%")
-        except:
-            pass
+        print("\n📊 Your latency results are ready:")
+        print("   - Per-model JSON: evaluation/results/latency/<model_slug>/")
+        print("   - Multi-model summary: evaluation/results/latency/multi_model_summary.json")
+        print("   - Plots: evaluation/visualizations/latency/<model_slug>/")
         
         print("\n💡 What's next:")
         print("   - Add more questions: python evaluation/dataset/add_questions.py")
-        print("   - Run ablation studies: python evaluation/experiments/ablation_studies.py")
+        print("   - Re-run with more models: python run_full_pipeline.py --skip-setup --llm-models ...")
         print("   - Interactive testing: python query_and_generate.py")
     
     # File sizes

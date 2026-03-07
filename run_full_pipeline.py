@@ -1,283 +1,174 @@
 #!/usr/bin/env python3
 """
-Master pipeline script to set up and run RAG system evaluation from scratch.
+Latency-focused full pipeline for local RAG benchmarking.
 
-Order of operations:
-1. Extract and chunk PDF
-2. Generate embeddings
-3. Build FAISS index
-4. Run evaluation (RAG vs No-RAG)
-5. Generate visualizations
+Pipeline:
+1) Extract and chunk data
+2) Generate embeddings
+3) Build FAISS and Chroma indices
+4) Run latency matrix (dense/sparse, doc-count sweep, RAG vs No-RAG)
+5) Compare CPU vs GPU and generate charts
 """
 
+import argparse
 import subprocess
 import sys
-import os
 from pathlib import Path
-import argparse
 
 
-def run_command(cmd, description, critical=True):
-    """Run a shell command and handle errors"""
-    print("\n" + "="*70)
-    print(f"STEP: {description}")
-    print("="*70)
-    print(f"Command: {cmd}\n")
-    
+def run_command(cmd: str, description: str, critical: bool = True) -> bool:
+    print("\n" + "=" * 70)
+    print(description)
+    print("=" * 70)
+    print(f"$ {cmd}\n")
+
     result = subprocess.run(cmd, shell=True)
-    
     if result.returncode != 0:
         if critical:
-            print(f"\n❌ ERROR: {description} failed!")
-            print(f"Exit code: {result.returncode}")
+            print(f"❌ Failed: {description}")
             sys.exit(1)
-        else:
-            print(f"\n⚠️  WARNING: {description} failed but continuing...")
-    else:
-        print(f"\n✓ {description} completed successfully!")
-    
-    return result.returncode == 0
+        print(f"⚠️  Non-critical failure: {description}")
+        return False
+
+    print(f"✅ Done: {description}")
+    return True
 
 
-def check_prerequisites():
-    """Check if required files exist"""
-    print("\n" + "="*70)
-    print("Checking Prerequisites")
-    print("="*70)
-    
-    required_files = [
+def check_prerequisites() -> bool:
+    required = [
         "data/handbook.pdf",
         "extract_and_chunk.py",
         "generate_embeddings.py",
         "store_faiss_index.py",
-        "evaluation/experiments/run_baseline_eval.py"
+        "store_chroma_index.py",
+        "evaluation/experiments/latency_eval.py",
+        "evaluation/experiments/compare_latency.py",
+        "evaluation/visualizations/plot_latency.py",
     ]
-    
-    missing = []
-    for file in required_files:
-        if not Path(file).exists():
-            missing.append(file)
-            print(f"❌ Missing: {file}")
-        else:
-            print(f"✓ Found: {file}")
-    
+
+    missing = [file for file in required if not Path(file).exists()]
     if missing:
-        print(f"\n❌ ERROR: Missing required files!")
-        print("Please ensure you have:")
-        print("  - data/handbook.pdf (source PDF document)")
-        print("  - All pipeline scripts in project root")
+        print("Missing required files:")
+        for file in missing:
+            print(f"  - {file}")
         return False
-    
-    print("\n✓ All prerequisites satisfied!")
     return True
 
 
-def check_outputs_exist():
-    """Check if pipeline outputs already exist"""
-    outputs = {
-        "chunks.pkl": "Text chunks",
-        "embeddings.npy": "Embeddings",
-        "faiss_index.bin": "FAISS index",
-        "metadata.pkl": "Metadata"
-    }
-    
-    existing = []
-    for file, desc in outputs.items():
-        if Path(file).exists():
-            existing.append((file, desc))
-    
-    return existing
+def setup_phase(force: bool):
+    outputs = ["chunks.pkl", "embeddings.npy", "faiss_index.bin", "metadata.pkl", "chroma_db"]
+    existing = [file for file in outputs if Path(file).exists()]
+
+    if existing and not force:
+        print("Existing setup artifacts found:")
+        for item in existing:
+            print(f"  - {item}")
+        response = input("Rebuild setup artifacts? (y/N): ").strip().lower()
+        if response != "y":
+            print("Skipping setup; reusing existing artifacts.")
+            return
+
+    run_command("python3 extract_and_chunk.py", "Step 1: Extract + chunk PDF")
+    run_command("python3 generate_embeddings.py", "Step 2: Generate embeddings")
+    run_command("python3 store_faiss_index.py", "Step 3: Build FAISS index")
+    run_command("python3 store_chroma_index.py", "Step 4: Build Chroma index")
+
+
+def evaluation_phase(args):
+    max_q_flag = f" --max-questions {args.max_questions}" if args.max_questions is not None else ""
+    cpu_skip = " --skip-cpu" if args.skip_cpu else ""
+    gpu_skip = " --skip-gpu" if args.skip_gpu else ""
+
+    cmd = (
+        "python3 evaluation/experiments/compare_latency.py "
+        f"--dataset {args.dataset} "
+        f"--output {args.output} "
+        f"--doc-counts {args.doc_counts} "
+        f"--dense-backends {args.dense_backends} "
+        f"--top-k {args.top_k} "
+        f"--max-new-tokens {args.max_new_tokens} "
+        f"--chroma-dir {args.chroma_dir} "
+        f"--llm-model {args.llm_model} "
+        f"{'--llm-models ' + args.llm_models + ' ' if args.llm_models else ''}"
+        f"--embed-model {args.embed_model} "
+        f"--warmup-runs {args.warmup_runs} "
+        f"{'--use-existing ' if args.use_existing else ''}"
+        f"{'--visualize ' if not args.skip_visualization else ''}"
+        f"{cpu_skip}{gpu_skip}{max_q_flag}"
+    )
+    run_command(cmd, "Step 5: Run latency matrix + CPU/GPU comparison")
+
+
+def print_summary(output_dir: str):
+    root = Path(output_dir)
+    print("\n" + "=" * 70)
+    print("PIPELINE COMPLETE")
+    print("=" * 70)
+    print("\nLatency JSON outputs (per model):")
+    print(f"  - {root / '<model_slug>' / 'cpu' / 'latency_results.json'}")
+    print(f"  - {root / '<model_slug>' / 'gpu' / 'latency_results.json'}")
+    print(f"  - {root / '<model_slug>' / 'cpu_gpu_comparison.json'}")
+    print(f"  - {root / 'multi_model_summary.json'} (when --llm-models is used)")
+    print("\nCharts:")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_stepwise_latency.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/gpu_stepwise_latency.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_doc_scaling.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/gpu_doc_scaling.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_rag_vs_no_rag_overhead.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/gpu_rag_vs_no_rag_overhead.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_total_latency_percentiles.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/gpu_total_latency_percentiles.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_generation_latency_percentiles.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/gpu_generation_latency_percentiles.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_gpu_total_speedup.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_gpu_component_speedup_heatmap.png")
+    print("  - evaluation/visualizations/latency/<model_slug>/cpu_gpu_p95_total_speedup.png")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run complete RAG pipeline from scratch",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Run full pipeline
-  python run_full_pipeline.py
-  
-  # Skip setup, only run evaluation
-  python run_full_pipeline.py --skip-setup
-  
-  # Run setup only, skip evaluation
-  python run_full_pipeline.py --setup-only
-  
-  # Force rebuild even if outputs exist
-  python run_full_pipeline.py --force
-        """
+    parser = argparse.ArgumentParser(description="Latency-focused RAG full pipeline")
+    parser.add_argument("--skip-setup", action="store_true")
+    parser.add_argument("--setup-only", action="store_true")
+    parser.add_argument("--force", action="store_true")
+
+    parser.add_argument("--dataset", type=str, default="evaluation/dataset/evaluation_dataset.json")
+    parser.add_argument("--output", type=str, default="evaluation/results/latency")
+    parser.add_argument("--doc-counts", type=str, default="50,200")
+    parser.add_argument("--dense-backends", type=str, default="faiss,chroma")
+    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--max-new-tokens", type=int, default=150)
+    parser.add_argument("--max-questions", type=int, default=None)
+    parser.add_argument("--chroma-dir", type=str, default="chroma_db")
+    parser.add_argument("--llm-model", type=str, default="microsoft/Phi-3-mini-4k-instruct")
+    parser.add_argument(
+        "--llm-models",
+        type=str,
+        default=None,
+        help="Comma-separated LLM models. Overrides --llm-model when provided.",
     )
-    
-    parser.add_argument("--skip-setup", action="store_true",
-                        help="Skip data processing and indexing (assumes already done)")
-    parser.add_argument("--setup-only", action="store_true",
-                        help="Only run setup steps, skip evaluation")
-    parser.add_argument("--skip-visualization", action="store_true",
-                        help="Skip visualization generation")
-    parser.add_argument("--skip-ablation", action="store_true",
-                        help="Skip ablation studies")
-    parser.add_argument("--force", action="store_true",
-                        help="Force rebuild even if outputs exist")
-    parser.add_argument("--no-cuda", action="store_true",
-                        help="Disable CUDA for evaluation")
-    
+    parser.add_argument("--embed-model", type=str, default="BAAI/bge-small-en-v1.5")
+    parser.add_argument("--warmup-runs", type=int, default=1)
+
+    parser.add_argument("--skip-cpu", action="store_true")
+    parser.add_argument("--skip-gpu", action="store_true")
+    parser.add_argument("--use-existing", action="store_true")
+    parser.add_argument("--skip-visualization", action="store_true")
+
     args = parser.parse_args()
-    
-    print("\n" + "="*70)
-    print("RAG SYSTEM FULL PIPELINE")
-    print("="*70)
-    print("\nThis script will:")
-    print("  1. Extract and chunk PDF document")
-    print("  2. Generate embeddings for all chunks")
-    print("  3. Build FAISS index for retrieval")
-    print("  4. Run RAG vs No-RAG evaluation")
-    print("  5. Generate visualizations")
-    print("  6. (Optional) Run ablation studies")
-    
-    # Check prerequisites
+
     if not check_prerequisites():
         sys.exit(1)
-    
-    # Check if outputs already exist
-    if not args.force and not args.skip_setup:
-        existing = check_outputs_exist()
-        if existing:
-            print("\n" + "="*70)
-            print("EXISTING OUTPUTS DETECTED")
-            print("="*70)
-            for file, desc in existing:
-                print(f"  ✓ {file} ({desc})")
-            
-            print("\nOptions:")
-            print("  - Use --force to rebuild everything")
-            print("  - Use --skip-setup to use existing outputs and run evaluation only")
-            
-            response = input("\nRebuild from scratch? (y/N): ").strip().lower()
-            if response != 'y':
-                print("Skipping setup phase. Using existing outputs.")
-                args.skip_setup = True
-    
-    success = True
-    
-    # SETUP PHASE
+
     if not args.skip_setup:
-        print("\n" + "="*70)
-        print("PHASE 1: DATA PREPARATION & INDEXING")
-        print("="*70)
-        
-        # Step 1: Extract and chunk
-        success = run_command(
-            "python3 extract_and_chunk.py",
-            "Extract text from PDF and create chunks"
-        )
-        if not success:
-            sys.exit(1)
-        
-        # Step 2: Generate embeddings
-        success = run_command(
-            "python3 generate_embeddings.py",
-            "Generate embeddings for all chunks"
-        )
-        if not success:
-            sys.exit(1)
-        
-        # Step 3: Build FAISS index
-        success = run_command(
-            "python3 store_faiss_index.py",
-            "Build and store FAISS index"
-        )
-        if not success:
-            sys.exit(1)
-        
-        print("\n" + "="*70)
-        print("✓ SETUP PHASE COMPLETE!")
-        print("="*70)
-        print("\nGenerated files:")
-        print("  ✓ chunks.pkl - Text chunks")
-        print("  ✓ embeddings.npy - Vector embeddings")
-        print("  ✓ faiss_index.bin - FAISS search index")
-        print("  ✓ metadata.pkl - Chunk metadata")
-    
+        setup_phase(args.force)
+
     if args.setup_only:
-        print("\n✓ Setup complete! You can now run evaluations.")
+        print("Setup-only mode complete.")
         return
-    
-    # EVALUATION PHASE
-    print("\n" + "="*70)
-    print("PHASE 2: EVALUATION")
-    print("="*70)
-    
-    # Step 4: Run baseline evaluation
-    cuda_flag = "--no-cuda" if args.no_cuda else ""
-    success = run_command(
-        f"python3 evaluation/experiments/run_baseline_eval.py {cuda_flag}",
-        "Run RAG vs No-RAG evaluation"
-    )
-    
-    if not success:
-        print("\n⚠️  Evaluation failed. Check error messages above.")
-        print("You may need to:")
-        print("  - Install required packages: pip install -r requirements.txt")
-        print("  - Use --no-cuda flag if GPU issues occur")
-        sys.exit(1)
-    
-    # VISUALIZATION PHASE
-    if not args.skip_visualization:
-        print("\n" + "="*70)
-        print("PHASE 3: VISUALIZATION")
-        print("="*70)
-        
-        success = run_command(
-            "python3 evaluation/visualizations/plot_results.py",
-            "Generate visualization plots",
-            critical=False
-        )
-        
-        if success:
-            print("\n✓ Visualizations saved to: evaluation/visualizations/")
-    
-    # ABLATION STUDIES (OPTIONAL)
-    if not args.skip_ablation:
-        print("\n" + "="*70)
-        print("PHASE 4: ABLATION STUDIES (Optional)")
-        print("="*70)
-        
-        response = input("\nRun ablation studies? This will take 20-40 minutes. (y/N): ").strip().lower()
-        
-        if response == 'y':
-            success = run_command(
-                f"python3 evaluation/experiments/ablation_studies.py --study top_k {cuda_flag}",
-                "Run top-k ablation study",
-                critical=False
-            )
-            
-            if success:
-                # Regenerate visualizations to include ablation plots
-                run_command(
-                    "python3 evaluation/visualizations/plot_results.py",
-                    "Update visualizations with ablation results",
-                    critical=False
-                )
-    
-    # FINAL SUMMARY
-    print("\n" + "="*70)
-    print("🎉 PIPELINE COMPLETE!")
-    print("="*70)
-    print("\n📊 Check your results:")
-    print("  - Summary metrics: evaluation/results/summary.json")
-    print("  - Per-question details: evaluation/results/generation_quality/")
-    print("  - Latency profiles: evaluation/results/latency_profiles/")
-    print("  - Visualizations: evaluation/visualizations/*.png")
-    print("\n📖 Documentation:")
-    print("  - Quick start: evaluation/QUICKSTART.md")
-    print("  - Detailed guide: evaluation/README.md")
-    print("\n✨ Next steps:")
-    print("  - Review the generated plots")
-    print("  - Check summary.json for aggregate metrics")
-    print("  - Add more questions: python evaluation/dataset/add_questions.py")
-    print("  - Experiment with different parameters in the evaluation scripts")
-    
+
+    evaluation_phase(args)
+    print_summary(args.output)
+
 
 if __name__ == "__main__":
     main()
