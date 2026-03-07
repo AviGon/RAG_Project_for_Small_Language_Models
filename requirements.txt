@@ -7,3 +7,5 @@ pickle5
 transformers
 accelerate
 torch
+chromadb
+rank-bm25
