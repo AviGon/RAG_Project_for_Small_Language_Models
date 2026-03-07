@@ -390,7 +390,33 @@ class LatencyEvaluator:
         with open(dataset_path, "r") as handle:
             dataset = json.load(handle)
 
-        questions = [item["question"] for item in dataset]
+        if isinstance(dataset, dict):
+            if "questions" in dataset and isinstance(dataset["questions"], list):
+                dataset_items = dataset["questions"]
+            elif "data" in dataset and isinstance(dataset["data"], list):
+                dataset_items = dataset["data"]
+            else:
+                raise ValueError(
+                    f"Unsupported dataset format in {dataset_path}. "
+                    "Expected either a top-level list or a dict containing 'questions' (or 'data') list."
+                )
+        elif isinstance(dataset, list):
+            dataset_items = dataset
+        else:
+            raise ValueError(
+                f"Unsupported dataset JSON type in {dataset_path}: {type(dataset).__name__}."
+            )
+
+        questions = []
+        for idx, item in enumerate(dataset_items):
+            if isinstance(item, dict) and "question" in item and isinstance(item["question"], str):
+                questions.append(item["question"])
+            else:
+                raise ValueError(
+                    f"Invalid question entry at index {idx} in {dataset_path}. "
+                    "Each item must be an object with a string 'question' field."
+                )
+
         if max_questions is not None:
             questions = questions[:max_questions]
 
