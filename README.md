@@ -1,17 +1,61 @@
 # RAG_Project_for_Small_Language_Models
 
-File order:
+File order for FAISS (Both dense and sparse) (4 files + 1 sparse):
 
-1) extract_and_chunk.py
-2) generate_embeddings.py
-3) store_faiss_index.py
-4) to test - used query_and_generate.py
+# Step 1: Extract and chunk from PDF
+python extract_and_chunk.py
+# Output: chunks.pkl
+
+# Step 2: Generate embeddings
+python generate_embeddings.py
+# Output: embeddings.npy
+
+# Step 3: Create FAISS index
+python store_faiss_index.py
+# Output: faiss_index.bin, metadata.pkl
+
+# Step 4: Create BM25 index (SPARSE)
+python sparse_bm25.py
+# Output: bm25_index.pkl
+
+# Step 5: Query with dense retrieval (FAISS)
+python query_and_generate.py
+
+# OR Step 5: Query with sparse retrieval# Step 1: Extract and chunk from PDF
+python extract_and_chunk.py
+# Output: chunks.pkl
+
+
+File order for Chroma db based (Both dense and sparse) (3 files + 1 sparse):
+
+# Step 1: Extract and chunk from PDF
+python extract_and_chunk.py
+# Output: chunks.pkl
+
+# Step 2: Generate embeddings
+python generate_embeddings.py
+# Output: embeddings.npy
+
+# Step 3: Create FAISS index
+python store_faiss_index.py
+# Output: faiss_index.bin, metadata.pkl
+
+# Step 4: Create BM25 index (SPARSE)
+python sparse_bm25.py
+# Output: bm25_index.pkl
+
+# Step 5: Query with dense retrieval (FAISS)
+python query_and_generate.py
+
+# OR Step 5: Query with sparse retrieval (BM25)
+python sparse_bm25.py search
 
 Model: microsoft/Phi-3-mini-4k-instruct
 
 Embedding model: BAAI/bge-small-en-v1.5
 
 FAISS file: faiss_index.bin
+Chromadb file: chromadb/
 
 Context stored: chunks.pkl
 
