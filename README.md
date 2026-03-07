@@ -12,7 +12,7 @@ The RAG pipeline consists of the following stages:
 
 ---
 
-## File order for FAISS (Both dense and sparse) (4 files + 1 sparse)
+## File order for FAISS (Both dense and sparse, and reranking) (4 files + 1 sparse)
 
 ### Step 1: Extract and chunk from PDF
 
@@ -81,9 +81,17 @@ OR
 python sparse_bm25.py search
 ```
 
+OR
+
+### Step 5: Query with dense retrieval and have reranking optimization
+
+```bash
+python query_and_generate_with_reranking.py
+```
+
 ---
 
-## File order for Chroma db based (Both dense and sparse) (3 files + 1 sparse)
+## File order for Chroma db based (Both dense and sparse, and reranking) (3 files + 1 sparse)
 
 ### Step 1: Extract and chunk from PDF
 
@@ -136,6 +144,14 @@ OR
 
 ```bash
 python sparse_bm25.py search
+```
+
+OR
+
+### Step 4: Query with dense retrieval with reranking optimization
+
+```bash
+python query_and_generate_chroma_with_reranking.py
 ```
 
 ---
