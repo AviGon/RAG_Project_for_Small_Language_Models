@@ -172,3 +172,5 @@ Embeddings file: embeddings.npy
 Open Education Handbook
 
 https://oerpolicy.eu/wp-content/uploads/sites/4/2017/07/Open-Education-Handbook.pdf
+
+To change dataset, in the file: extract_and_chunk.py, change PDF_PATH, CHUNK_SIZE and OVERLAP. Try to keep OVERLAP 20% of CHUNK_SIZE
