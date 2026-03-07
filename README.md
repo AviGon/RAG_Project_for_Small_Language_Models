@@ -2,52 +2,48 @@
 
 File order for FAISS (Both dense and sparse) (4 files + 1 sparse):
 
-# Step 1: Extract and chunk from PDF
+Step 1: Extract and chunk from PDF
 python extract_and_chunk.py
-# Output: chunks.pkl
+Output: chunks.pkl
 
-# Step 2: Generate embeddings
+Step 2: Generate embeddings
 python generate_embeddings.py
-# Output: embeddings.npy
+Output: embeddings.npy
 
-# Step 3: Create FAISS index
+Step 3: Create FAISS index
 python store_faiss_index.py
-# Output: faiss_index.bin, metadata.pkl
+Output: faiss_index.bin, metadata.pkl
 
-# Step 4: Create BM25 index (SPARSE)
+Step 4: Create BM25 index (SPARSE)
 python sparse_bm25.py
-# Output: bm25_index.pkl
+Output: bm25_index.pkl
 
-# Step 5: Query with dense retrieval (FAISS)
+Step 5: Query with dense retrieval (FAISS)
 python query_and_generate.py
 
-# OR Step 5: Query with sparse retrieval# Step 1: Extract and chunk from PDF
-python extract_and_chunk.py
-# Output: chunks.pkl
+OR Step 5: Query with sparse retrieval (BM25)
+python sparse_bm25.py search
+
 
 
 File order for Chroma db based (Both dense and sparse) (3 files + 1 sparse):
 
-# Step 1: Extract and chunk from PDF
+Step 1: Extract and chunk from PDF
 python extract_and_chunk.py
-# Output: chunks.pkl
+Output: chunks.pkl
 
-# Step 2: Generate embeddings
-python generate_embeddings.py
-# Output: embeddings.npy
+Step 2: Setup ChromaDB (embeddings + index)
+python setup_chromadb.py
+Output: chroma_db/ folder
 
-# Step 3: Create FAISS index
-python store_faiss_index.py
-# Output: faiss_index.bin, metadata.pkl
-
-# Step 4: Create BM25 index (SPARSE)
+Step 3: Create BM25 index (SPARSE)
 python sparse_bm25.py
-# Output: bm25_index.pkl
+Output: bm25_index.pkl
 
-# Step 5: Query with dense retrieval (FAISS)
-python query_and_generate.py
+Step 4: Query with dense retrieval (ChromaDB)
+python query_and_generate_chroma.py
 
-# OR Step 5: Query with sparse retrieval (BM25)
+OR Step 4: Query with sparse retrieval (BM25)
 python sparse_bm25.py search
 
 Model: microsoft/Phi-3-mini-4k-instruct
