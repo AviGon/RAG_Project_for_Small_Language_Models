@@ -185,8 +185,19 @@ Embeddings file: embeddings.npy
 
 ## Data used
 
-Open Education Handbook
+1) Open Education Handbook (50 pages)
 
 https://oerpolicy.eu/wp-content/uploads/sites/4/2017/07/Open-Education-Handbook.pdf
 
+2) US Department of Housing and Urban affairs (1800 pages)
+
+https://www.hud.gov/sites/dfiles/OCHCO/documents/40001-hsgh-update15-052024.pdf
+
+3) Science and Technology Peer Review Council (250 pages)
+
+https://www.epa.gov/sites/default/files/2020-08/documents/epa_peer_review_handbook_4th_edition.pdf
+
+4) Lease Implementation Guidelines (13 pages)
+
+https://files.fasab.gov/pdffiles/handbook_tr_22.pdf
 To change dataset, in the file: extract_and_chunk.py, change PDF_PATH, CHUNK_SIZE and OVERLAP. Try to keep OVERLAP 20% of CHUNK_SIZE
