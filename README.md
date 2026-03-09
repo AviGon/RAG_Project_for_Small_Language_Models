@@ -89,6 +89,26 @@ OR
 python query_and_generate_with_reranking.py
 ```
 
+OR
+
+### Step 5: Query with tool-augmented RAG (FAISS + Tool Router)
+
+```bash
+python query_and_generate_with_tools.py
+```
+
+Supports:
+- `rag_search` (default): retrieves top-k chunks and answers from context
+- `calculator`: safe arithmetic evaluation
+- `current_datetime`: local date/time lookup
+- `corpus_stats`: chunk/index stats
+
+Optional explicit commands:
+- `/tool calc 21*19`
+- `/tool time`
+- `/tool stats`
+- `/tool rag <your question>`
+
 ---
 
 ## File order for Chroma db based (Both dense and sparse, and reranking) (3 files + 1 sparse)
@@ -135,7 +155,7 @@ bm25_index.pkl
 ### Step 4: Query with dense retrieval (ChromaDB)
 
 ```bash
-python query_and_generate_chroma.py
+python query_and_generate_chromadb.py
 ```
 
 OR
