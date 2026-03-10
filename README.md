@@ -102,12 +102,16 @@ Supports:
 - `calculator`: safe arithmetic evaluation
 - `current_datetime`: local date/time lookup
 - `corpus_stats`: chunk/index stats
+- `web_fetch`: fetch a web page by URL and answer from its content
+- `web_search`: search the web and answer from top results
 
 Optional explicit commands:
 - `/tool calc 21*19`
 - `/tool time`
 - `/tool stats`
 - `/tool rag <your question>`
+- `/tool web <url> <question>`
+- `/tool websearch <query>`
 
 ---
 
