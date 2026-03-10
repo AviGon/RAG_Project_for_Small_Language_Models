@@ -11,6 +11,7 @@ import argparse
 import importlib
 import json
 import pickle
+import re
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -21,6 +22,12 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+try:
+    from sentence_transformers import CrossEncoder
+    RERANK_AVAILABLE = True
+except ImportError:
+    RERANK_AVAILABLE = False
 
 try:
     import chromadb
@@ -48,6 +55,8 @@ DEFAULT_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 class LatencyProfile:
     query_encoding_ms: float = 0.0
     ann_search_ms: float = 0.0
+    rerank_ms: float = 0.0
+    tool_routing_ms: float = 0.0
     prompt_construction_ms: float = 0.0
     generation_ms: float = 0.0
     total_ms: float = 0.0
@@ -77,9 +86,14 @@ class LatencyEvaluator:
         llm_model_name: str,
         embed_model_name: str,
         warmup_runs: int,
+        enable_reranking: bool,
+        enable_tool_routing: bool,
+        reranker_model_name: str,
+        rerank_initial_k: int,
+        rerank_final_k: int,
     ):
         self.torch = importlib.import_module("torch")
-        self.device = "cuda" if use_cuda and self.torch.cuda.is_available() else "cpu"
+        self.device = self._resolve_device(use_cuda)
         self.max_new_tokens = max_new_tokens
         self.top_k = top_k
         self.dense_backends = dense_backends
@@ -88,11 +102,39 @@ class LatencyEvaluator:
         self.llm_model_name = llm_model_name
         self.embed_model_name = embed_model_name
         self.warmup_runs = max(0, warmup_runs)
+        self.enable_reranking = enable_reranking
+        self.enable_tool_routing = enable_tool_routing
+        self.reranker_model_name = reranker_model_name
+        self.rerank_initial_k = max(1, rerank_initial_k)
+        self.rerank_final_k = max(1, rerank_final_k)
+        if self.rerank_final_k > self.rerank_initial_k:
+            self.rerank_final_k = self.rerank_initial_k
 
         self._load_assets()
         self._run_sanity_checks()
         self._prepare_indices()
         self._load_models()
+        self._load_optional_models()
+
+    def _resolve_device(self, use_cuda: bool) -> str:
+        if not use_cuda:
+            return "cpu"
+
+        if self.torch.cuda.is_available():
+            return "cuda"
+
+        mps_backend = getattr(self.torch.backends, "mps", None)
+        if mps_backend and mps_backend.is_available():
+            return "mps"
+
+        return "cpu"
+
+    def _sync_device(self):
+        # GPU backends can queue work asynchronously; synchronize for accurate timing.
+        if self.device == "cuda":
+            self.torch.cuda.synchronize()
+        elif self.device == "mps" and hasattr(self.torch, "mps"):
+            self.torch.mps.synchronize()
 
     def _run_sanity_checks(self):
         print("\nSanity checks")
@@ -121,7 +163,7 @@ class LatencyEvaluator:
             except Exception:
                 print("Note: install psutil for RAM pre-checks.")
         else:
-            print("CUDA mode enabled.")
+            print(f"Accelerator mode enabled ({self.device.upper()}).")
 
         if "chroma" in self.dense_backends and not CHROMA_AVAILABLE:
             raise ImportError("Chroma backend requested but chromadb is not installed.")
@@ -131,6 +173,9 @@ class LatencyEvaluator:
                 "BM25 sparse retrieval is enabled by default but rank-bm25 is not installed. "
                 "Install dependencies with: python3 -m pip install -r requirements.txt"
             )
+
+        if self.enable_reranking and not RERANK_AVAILABLE:
+            print("Warning: reranking enabled but CrossEncoder unavailable; rerank methods will be skipped.")
 
     def _load_assets(self):
         with open("chunks.pkl", "rb") as handle:
@@ -212,12 +257,25 @@ class LatencyEvaluator:
         print("Loading LLM...")
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(self.llm_model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.llm_model_name,
-                    torch_dtype=self.torch.float16 if self.device == "cuda" else self.torch.float32,
-                device_map=self.device,
-                trust_remote_code=True,
-            )
+            if self.device == "cuda":
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.llm_model_name,
+                    torch_dtype=self.torch.float16,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+            elif self.device == "mps":
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.llm_model_name,
+                    torch_dtype=self.torch.float16,
+                    trust_remote_code=True,
+                ).to("mps")
+            else:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.llm_model_name,
+                    torch_dtype=self.torch.float32,
+                    trust_remote_code=True,
+                ).to("cpu")
         except Exception as error:
             raise RuntimeError(
                 "Failed to load LLM. Try: "
@@ -229,6 +287,15 @@ class LatencyEvaluator:
 
         if self.warmup_runs > 0:
             self._warmup()
+
+    def _load_optional_models(self):
+        self.reranker = None
+        if not self.enable_reranking:
+            return
+        if not RERANK_AVAILABLE:
+            return
+        print(f"Loading reranker ({self.reranker_model_name})...")
+        self.reranker = CrossEncoder(self.reranker_model_name)
 
     def _warmup(self):
         print(f"Running warmup ({self.warmup_runs} run(s))...")
@@ -248,6 +315,18 @@ class LatencyEvaluator:
         contexts = [self.chunks[i] for i in indices[0]]
         return contexts, elapsed
 
+    def _retrieve_faiss_candidates(
+        self,
+        query_embedding: np.ndarray,
+        docs: int,
+        candidate_k: int,
+    ) -> Tuple[List[str], float]:
+        start = time.perf_counter()
+        _, indices = self.faiss_indices[docs].search(query_embedding, min(candidate_k, docs))
+        elapsed = (time.perf_counter() - start) * 1000
+        contexts = [self.chunks[i] for i in indices[0]]
+        return contexts, elapsed
+
     def _retrieve_chroma(self, query_embedding: np.ndarray, docs: int) -> Tuple[List[str], float]:
         start = time.perf_counter()
         result = self.chroma_collections[docs].query(
@@ -258,6 +337,52 @@ class LatencyEvaluator:
         elapsed = (time.perf_counter() - start) * 1000
         contexts = result.get("documents", [[]])[0]
         return contexts, elapsed
+
+    def _retrieve_chroma_candidates(
+        self,
+        query_embedding: np.ndarray,
+        docs: int,
+        candidate_k: int,
+    ) -> Tuple[List[str], float]:
+        start = time.perf_counter()
+        result = self.chroma_collections[docs].query(
+            query_embeddings=[query_embedding[0].tolist()],
+            n_results=min(candidate_k, docs),
+            include=["documents"],
+        )
+        elapsed = (time.perf_counter() - start) * 1000
+        contexts = result.get("documents", [[]])[0]
+        return contexts, elapsed
+
+    def _rerank_contexts(self, query: str, contexts: List[str]) -> Tuple[List[str], float]:
+        if not contexts or self.reranker is None:
+            return contexts[: self.rerank_final_k], 0.0
+
+        start = time.perf_counter()
+        pairs = [[query, chunk] for chunk in contexts]
+        scores = self.reranker.predict(pairs)
+        ranked_indices = np.argsort(scores)[::-1]
+        top_chunks = [contexts[i] for i in ranked_indices[: self.rerank_final_k]]
+        elapsed = (time.perf_counter() - start) * 1000
+        return top_chunks, elapsed
+
+    def _tool_route(self, query: str) -> Tuple[str, float]:
+        start = time.perf_counter()
+        q = query.lower().strip()
+        if re.search(r"https?://\S+", query):
+            decision = "web_fetch"
+        elif any(kw in q for kw in ["from the web", "search the web", "on the internet", "online", "latest", "news"]):
+            decision = "web_search"
+        elif any(kw in q for kw in ["current time", "what time", "today date", "current date"]):
+            decision = "current_datetime"
+        elif any(kw in q for kw in ["how many chunks", "index size", "corpus stats", "database stats"]):
+            decision = "corpus_stats"
+        elif q.startswith(("calculate ", "compute ", "solve ")):
+            decision = "calculator"
+        else:
+            decision = "rag_search"
+        elapsed = (time.perf_counter() - start) * 1000
+        return decision, elapsed
 
     def _retrieve_bm25(self, query: str, docs: int) -> Tuple[List[str], float]:
         if docs not in self.bm25_indices or self.bm25_indices[docs] is None:
@@ -287,6 +412,7 @@ class LatencyEvaluator:
         return prompt, elapsed
 
     def _generate(self, prompt: str) -> float:
+        self._sync_device()
         start = time.perf_counter()
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         self.model.generate(
@@ -296,6 +422,7 @@ class LatencyEvaluator:
             do_sample=False,
             pad_token_id=self.tokenizer.eos_token_id,
         )
+        self._sync_device()
         elapsed = (time.perf_counter() - start) * 1000
         return elapsed
 
@@ -328,6 +455,44 @@ class LatencyEvaluator:
             profile.prompt_construction_ms = prompt_ms
             profile.generation_ms = self._generate(prompt)
 
+        elif method == "dense_faiss_rerank":
+            query_embedding, enc_ms = self._encode_query(question)
+            candidates, ann_ms = self._retrieve_faiss_candidates(query_embedding, docs, self.rerank_initial_k)
+            contexts, rerank_ms = self._rerank_contexts(question, candidates)
+            profile.query_encoding_ms = enc_ms
+            profile.ann_search_ms = ann_ms
+            profile.rerank_ms = rerank_ms
+            prompt, prompt_ms = self._build_prompt(question, contexts)
+            profile.prompt_construction_ms = prompt_ms
+            profile.generation_ms = self._generate(prompt)
+
+        elif method == "dense_chroma_rerank":
+            query_embedding, enc_ms = self._encode_query(question)
+            candidates, ann_ms = self._retrieve_chroma_candidates(query_embedding, docs, self.rerank_initial_k)
+            contexts, rerank_ms = self._rerank_contexts(question, candidates)
+            profile.query_encoding_ms = enc_ms
+            profile.ann_search_ms = ann_ms
+            profile.rerank_ms = rerank_ms
+            prompt, prompt_ms = self._build_prompt(question, contexts)
+            profile.prompt_construction_ms = prompt_ms
+            profile.generation_ms = self._generate(prompt)
+
+        elif method == "tool_rag_faiss":
+            decision, route_ms = self._tool_route(question)
+            profile.tool_routing_ms = route_ms
+            if decision != "rag_search":
+                prompt, prompt_ms = self._build_prompt(question, None)
+                profile.prompt_construction_ms = prompt_ms
+                profile.generation_ms = self._generate(prompt)
+            else:
+                query_embedding, enc_ms = self._encode_query(question)
+                contexts, ann_ms = self._retrieve_faiss(query_embedding, docs)
+                profile.query_encoding_ms = enc_ms
+                profile.ann_search_ms = ann_ms
+                prompt, prompt_ms = self._build_prompt(question, contexts)
+                profile.prompt_construction_ms = prompt_ms
+                profile.generation_ms = self._generate(prompt)
+
         elif method == "sparse_bm25":
             contexts, ann_ms = self._retrieve_bm25(question, docs)
             profile.ann_search_ms = ann_ms
@@ -352,6 +517,8 @@ class LatencyEvaluator:
         components = [
             "query_encoding_ms",
             "ann_search_ms",
+            "rerank_ms",
+            "tool_routing_ms",
             "prompt_construction_ms",
             "generation_ms",
             "total_ms",
@@ -374,6 +541,8 @@ class LatencyEvaluator:
         percentages = {
             "query_encoding_pct": (summary["mean"]["query_encoding_ms"] / total * 100) if total else 0.0,
             "ann_search_pct": (summary["mean"]["ann_search_ms"] / total * 100) if total else 0.0,
+            "rerank_pct": (summary["mean"]["rerank_ms"] / total * 100) if total else 0.0,
+            "tool_routing_pct": (summary["mean"]["tool_routing_ms"] / total * 100) if total else 0.0,
             "prompt_construction_pct": (summary["mean"]["prompt_construction_ms"] / total * 100) if total else 0.0,
             "generation_pct": (summary["mean"]["generation_ms"] / total * 100) if total else 0.0,
         }
@@ -423,8 +592,14 @@ class LatencyEvaluator:
         methods_to_run = []
         if "faiss" in self.dense_backends:
             methods_to_run.append("dense_faiss")
+            if self.enable_reranking and self.reranker is not None:
+                methods_to_run.append("dense_faiss_rerank")
+            if self.enable_tool_routing:
+                methods_to_run.append("tool_rag_faiss")
         if "chroma" in self.dense_backends:
             methods_to_run.append("dense_chroma")
+            if self.enable_reranking and self.reranker is not None:
+                methods_to_run.append("dense_chroma_rerank")
         methods_to_run.append("sparse_bm25")
         methods_to_run.append("no_rag")
 
@@ -462,6 +637,11 @@ class LatencyEvaluator:
                 "top_k": self.top_k,
                 "dense_backends": self.dense_backends,
                 "max_new_tokens": self.max_new_tokens,
+                "enable_reranking": self.enable_reranking,
+                "enable_tool_routing": self.enable_tool_routing,
+                "reranker_model": self.reranker_model_name,
+                "rerank_initial_k": self.rerank_initial_k,
+                "rerank_final_k": self.rerank_final_k,
             },
             "methods": summary_methods,
             "comparisons": comparisons,
@@ -495,7 +675,14 @@ class LatencyEvaluator:
             insight = stats.get("insight", {})
             comparisons["bottlenecks"][key] = insight
 
-        families = ["dense_faiss", "dense_chroma", "sparse_bm25"]
+        families = [
+            "dense_faiss",
+            "dense_faiss_rerank",
+            "tool_rag_faiss",
+            "dense_chroma",
+            "dense_chroma_rerank",
+            "sparse_bm25",
+        ]
         for family in families:
             series = []
             for key, stats in methods.items():
@@ -539,6 +726,11 @@ def main():
     parser.add_argument("--llm-model", type=str, default=DEFAULT_LLM_MODEL)
     parser.add_argument("--embed-model", type=str, default=DEFAULT_EMBED_MODEL)
     parser.add_argument("--warmup-runs", type=int, default=1)
+    parser.add_argument("--disable-reranking", action="store_true")
+    parser.add_argument("--disable-tool-routing", action="store_true")
+    parser.add_argument("--reranker-model", type=str, default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    parser.add_argument("--rerank-initial-k", type=int, default=20)
+    parser.add_argument("--rerank-final-k", type=int, default=5)
     parser.add_argument("--no-cuda", action="store_true")
 
     args = parser.parse_args()
@@ -561,6 +753,11 @@ def main():
         llm_model_name=args.llm_model,
         embed_model_name=args.embed_model,
         warmup_runs=args.warmup_runs,
+        enable_reranking=not args.disable_reranking,
+        enable_tool_routing=not args.disable_tool_routing,
+        reranker_model_name=args.reranker_model,
+        rerank_initial_k=args.rerank_initial_k,
+        rerank_final_k=args.rerank_final_k,
     )
     evaluator.run(args.dataset, args.output, args.max_questions)
 

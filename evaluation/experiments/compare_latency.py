@@ -13,16 +13,27 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
+DEFAULT_LLM_MODELS = (
+    "Qwen/Qwen2.5-1.5B-Instruct,"
+    "microsoft/Phi-3-mini-4k-instruct,"
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0,"
+    "mistralai/Mistral-7B-Instruct-v0.2"
+)
+
+
 def run_command(cmd: str) -> bool:
     print(f"\n$ {cmd}")
     result = subprocess.run(cmd, shell=True)
     return result.returncode == 0
 
 
-def cuda_available() -> bool:
+def gpu_available() -> bool:
     try:
         torch = importlib.import_module("torch")
-        return bool(torch.cuda.is_available())
+        if torch.cuda.is_available():
+            return True
+        mps_backend = getattr(torch.backends, "mps", None)
+        return bool(mps_backend and mps_backend.is_available())
     except Exception:
         return False
 
@@ -96,6 +107,8 @@ def build_cpu_gpu_comparison(cpu: dict, gpu: dict) -> dict:
         components = [
             "query_encoding_ms",
             "ann_search_ms",
+            "rerank_ms",
+            "tool_routing_ms",
             "prompt_construction_ms",
             "generation_ms",
             "total_ms",
@@ -295,8 +308,11 @@ def main():
     parser.add_argument(
         "--llm-models",
         type=str,
-        default=None,
-        help="Comma-separated LLM models. Overrides --llm-model when provided.",
+        default=DEFAULT_LLM_MODELS,
+        help=(
+            "Comma-separated LLM models. Overrides --llm-model when provided. "
+            "Defaults to the 4-model suite including Mistral."
+        ),
     )
     parser.add_argument("--embed-model", type=str, default="BAAI/bge-small-en-v1.5")
     parser.add_argument("--warmup-runs", type=int, default=1)
@@ -311,8 +327,8 @@ def main():
     models = parse_models(args.llm_model, args.llm_models)
 
     gpu_allowed = True
-    if not args.skip_gpu and not cuda_available():
-        print("CUDA unavailable. Skipping GPU run.")
+    if not args.skip_gpu and not gpu_available():
+        print("No GPU backend available (CUDA/MPS). Skipping GPU run.")
         gpu_allowed = False
 
     all_results = {}

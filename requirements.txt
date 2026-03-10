@@ -9,5 +9,6 @@ accelerate
 torch
 chromadb
 rank-bm25
-
+requests
+beautifulsoup4
 matplotlib

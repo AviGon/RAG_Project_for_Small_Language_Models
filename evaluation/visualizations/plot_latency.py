@@ -18,6 +18,8 @@ import numpy as np
 COMPONENTS = [
     "query_encoding_ms",
     "ann_search_ms",
+    "rerank_ms",
+    "tool_routing_ms",
     "prompt_construction_ms",
     "generation_ms",
 ]
@@ -36,12 +38,21 @@ def method_order(method_name: str):
     if method_name.startswith("dense_faiss"):
         docs = int(method_name.split("_docs_")[-1])
         return (1, docs)
-    if method_name.startswith("dense_chroma"):
+    if method_name.startswith("dense_faiss_rerank"):
         docs = int(method_name.split("_docs_")[-1])
         return (2, docs)
-    if method_name.startswith("sparse_bm25"):
+    if method_name.startswith("tool_rag_faiss"):
         docs = int(method_name.split("_docs_")[-1])
         return (3, docs)
+    if method_name.startswith("dense_chroma"):
+        docs = int(method_name.split("_docs_")[-1])
+        return (4, docs)
+    if method_name.startswith("dense_chroma_rerank"):
+        docs = int(method_name.split("_docs_")[-1])
+        return (5, docs)
+    if method_name.startswith("sparse_bm25"):
+        docs = int(method_name.split("_docs_")[-1])
+        return (6, docs)
     return (99, 0)
 
 
@@ -53,7 +64,10 @@ def pretty_name(method_name: str) -> str:
     docs = docs.strip()
     family_label = {
         "dense_faiss": "Dense-FAISS",
+        "dense_faiss_rerank": "Dense-FAISS+Rerank",
+        "tool_rag_faiss": "Tool-Routed FAISS",
         "dense_chroma": "Dense-Chroma",
+        "dense_chroma_rerank": "Dense-Chroma+Rerank",
         "sparse_bm25": "Sparse-BM25",
     }.get(family, family)
     return f"{family_label}\n(docs={docs})"
@@ -87,7 +101,14 @@ def plot_stepwise_latency(single_results: dict, output_path: Path):
 def plot_doc_scaling(single_results: dict, output_path: Path):
     methods = single_results["methods"]
 
-    families = ["dense_faiss", "dense_chroma", "sparse_bm25"]
+    families = [
+        "dense_faiss",
+        "dense_faiss_rerank",
+        "tool_rag_faiss",
+        "dense_chroma",
+        "dense_chroma_rerank",
+        "sparse_bm25",
+    ]
     plt.figure(figsize=(10, 6))
 
     for family in families:

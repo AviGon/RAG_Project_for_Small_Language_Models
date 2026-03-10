@@ -16,6 +16,14 @@ import sys
 from pathlib import Path
 
 
+DEFAULT_LLM_MODELS = (
+    "Qwen/Qwen2.5-1.5B-Instruct,"
+    "microsoft/Phi-3-mini-4k-instruct,"
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0,"
+    "mistralai/Mistral-7B-Instruct-v0.2"
+)
+
+
 def run_command(cmd: str, description: str, critical: bool = True) -> bool:
     print("\n" + "=" * 70)
     print(description)
@@ -143,8 +151,11 @@ def main():
     parser.add_argument(
         "--llm-models",
         type=str,
-        default=None,
-        help="Comma-separated LLM models. Overrides --llm-model when provided.",
+        default=DEFAULT_LLM_MODELS,
+        help=(
+            "Comma-separated LLM models. Overrides --llm-model when provided. "
+            "Defaults to the 4-model suite including Mistral."
+        ),
     )
     parser.add_argument("--embed-model", type=str, default="BAAI/bge-small-en-v1.5")
     parser.add_argument("--warmup-runs", type=int, default=1)
