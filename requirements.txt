@@ -1,9 +1,14 @@
 pymupdf
 sentence-transformers
 faiss-cpu
-numpy
+numpy<2
 tqdm
-pickle5
+# pickle
 transformers
 accelerate
 torch
+chromadb
+rank-bm25
+requests
+beautifulsoup4
+matplotlib

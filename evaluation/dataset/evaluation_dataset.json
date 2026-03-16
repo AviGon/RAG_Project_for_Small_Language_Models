@@ -1,0 +1,190 @@
+{
+  "metadata": {
+    "description": "Evaluation dataset for RAG system using Open Education Handbook",
+    "total_questions": 20,
+    "created_date": "2026-03-06",
+    "source_document": "Open Education Handbook (https://oerpolicy.eu/wp-content/uploads/sites/4/2017/07/Open-Education-Handbook.pdf)"
+  },
+  "questions": [
+    {
+      "id": 1,
+      "question": "What does OER stand for?",
+      "reference_answer": "Open Educational Resources",
+      "category": "definitional",
+      "difficulty": "easy",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 2,
+      "question": "What are the 5 Rs of OER?",
+      "reference_answer": "The 5 Rs are: Retain, Reuse, Revise, Remix, and Redistribute",
+      "category": "factual",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 3,
+      "question": "What is Creative Commons licensing?",
+      "reference_answer": "Creative Commons is a licensing system that allows creators to specify how others can use their work, providing a standardized way to grant copyright permissions",
+      "category": "definitional",
+      "difficulty": "easy",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 4,
+      "question": "What are the main benefits of using Open Educational Resources?",
+      "reference_answer": "Benefits include cost savings for students, flexibility to adapt materials, improved access to education, ability to update content quickly, and collaborative improvement of resources",
+      "category": "factual",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 5,
+      "question": "How can educators evaluate the quality of OER materials?",
+      "reference_answer": "Quality can be evaluated by assessing accuracy, relevance, clarity, technical quality, appropriateness for audience, alignment with learning objectives, and pedagogical effectiveness",
+      "category": "procedural",
+      "difficulty": "hard",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 6,
+      "question": "What is the difference between open access and open education?",
+      "reference_answer": "Open access refers to free availability of research publications, while open education encompasses broader educational practices including OER, open pedagogy, and open educational practices",
+      "category": "comparison",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 7,
+      "question": "What are some common barriers to OER adoption?",
+      "reference_answer": "Common barriers include lack of awareness, concerns about quality, difficulty finding relevant resources, lack of technical skills, institutional resistance, and sustainability challenges",
+      "category": "factual",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 8,
+      "question": "What is open pedagogy?",
+      "reference_answer": "Open pedagogy is a teaching approach that leverages open educational resources and practices to create collaborative, student-centered learning experiences where learners contribute to knowledge creation",
+      "category": "definitional",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 9,
+      "question": "How do OER repositories help educators?",
+      "reference_answer": "OER repositories provide centralized access to educational resources, offer search and discovery tools, ensure quality through curation, and facilitate sharing and collaboration among educators",
+      "category": "procedural",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 10,
+      "question": "What role does metadata play in OER discoverability?",
+      "reference_answer": "Metadata helps make OER discoverable by providing standardized descriptions of resources including subject, education level, format, language, and licensing information",
+      "category": "factual",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 11,
+      "question": "What are MOOCs?",
+      "reference_answer": "MOOCs are Massive Open Online Courses - online courses designed for unlimited participation and open access via the internet",
+      "category": "definitional",
+      "difficulty": "easy",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 12,
+      "question": "How can institutions support OER creation and adoption?",
+      "reference_answer": "Institutions can provide funding, training, technical infrastructure, recognition and incentives for faculty, policy support, and dedicated staff for OER initiatives",
+      "category": "procedural",
+      "difficulty": "hard",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 13,
+      "question": "What is the UNESCO declaration on OER?",
+      "reference_answer": "The UNESCO OER declaration is a policy framework that encourages governments to support the creation, use, and sharing of open educational resources to expand access to quality education",
+      "category": "factual",
+      "difficulty": "hard",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 14,
+      "question": "What technical skills do educators need to create OER?",
+      "reference_answer": "Educators need skills in content authoring tools, understanding of open licenses, basic multimedia editing, file format selection, and online platforms for sharing resources",
+      "category": "factual",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 15,
+      "question": "How does OER relate to copyright?",
+      "reference_answer": "OER uses open licenses like Creative Commons that work within copyright law to give creators control while allowing others to use, adapt, and share materials more freely than traditional copyright",
+      "category": "comparison",
+      "difficulty": "medium",
+      "in_document": true,
+      "requires_retrieval": true
+    },
+    {
+      "id": 16,
+      "question": "What is the capital of France?",
+      "reference_answer": "Paris",
+      "category": "out_of_domain",
+      "difficulty": "easy",
+      "in_document": false,
+      "requires_retrieval": false
+    },
+    {
+      "id": 17,
+      "question": "How does quantum computing work?",
+      "reference_answer": "Quantum computing uses quantum mechanical phenomena like superposition and entanglement to perform computations",
+      "category": "out_of_domain",
+      "difficulty": "hard",
+      "in_document": false,
+      "requires_retrieval": false
+    },
+    {
+      "id": 18,
+      "question": "Who won the 2024 World Cup?",
+      "reference_answer": "This information would not be in the 2017 Open Education Handbook",
+      "category": "out_of_domain",
+      "difficulty": "medium",
+      "in_document": false,
+      "requires_retrieval": false
+    },
+    {
+      "id": 19,
+      "question": "What is the speed of light?",
+      "reference_answer": "Approximately 299,792,458 meters per second",
+      "category": "out_of_domain",
+      "difficulty": "easy",
+      "in_document": false,
+      "requires_retrieval": false
+    },
+    {
+      "id": 20,
+      "question": "How do neural networks learn?",
+      "reference_answer": "Neural networks learn by adjusting weights through backpropagation based on the difference between predicted and actual outputs",
+      "category": "out_of_domain",
+      "difficulty": "hard",
+      "in_document": false,
+      "requires_retrieval": false
+    }
+  ]
+}
