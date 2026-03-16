@@ -1,8 +1,6 @@
-# RAG_Project_for_Small_Language_Models
+# RAG Project for Small Language Models (Latency Focus)
 
-## RAG Pipeline
-
-The RAG pipeline consists of the following stages:
+This project benchmarks local RAG latency end-to-end with a strict profiling pipeline:
 
 - Document Extraction & Chunking  
 - Embedding Generation  
@@ -30,31 +28,21 @@ chunks.pkl
 ### Step 2: Generate embeddings
 
 ```bash
-python generate_embeddings.py
+python3 run_full_pipeline.py
 ```
 
-Output:
-```
-embeddings.npy
-```
-
----
-
-### Step 3: Create FAISS index
+Useful options:
 
 ```bash
-python store_faiss_index.py
+python3 run_full_pipeline.py \
+	--skip-setup \
+	--doc-counts 50,200 \
+	--dense-backends faiss,chroma \
+	--top-k 5 \
+	--max-new-tokens 150
 ```
 
-Output:
-```
-faiss_index.bin
-metadata.pkl
-```
-
----
-
-### Step 4: Create BM25 index (SPARSE)
+## Run CPU/GPU Latency Comparison Directly
 
 ```bash
 python sparse_bm25.py
