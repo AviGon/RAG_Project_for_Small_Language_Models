@@ -1,6 +1,6 @@
-# RAG Project for Small Language Models (Latency Focus)
+# RAG Project for Small Language Models
 
-This project benchmarks local RAG latency end-to-end with a strict profiling pipeline:
+RAG steps:
 
 - Document Extraction & Chunking  
 - Embedding Generation  
