@@ -10,7 +10,7 @@ RAG steps:
 
 ---
 
-## File order for FAISS (Both dense and sparse, and reranking) (4 files + 1 sparse)
+## File order for FAISS (Both dense and sparse, and reranking)
 
 ### Step 1: Extract and chunk from PDF
 
@@ -103,7 +103,7 @@ Optional explicit commands:
 
 ---
 
-## File order for Chroma db based (Both dense and sparse, and reranking) (3 files + 1 sparse)
+## File order for Chroma db based (Both dense and sparse, and reranking)
 
 ### Step 1: Extract and chunk from PDF
 
@@ -212,4 +212,6 @@ https://www.epa.gov/sites/default/files/2020-08/documents/epa_peer_review_handbo
 4) Lease Implementation Guidelines (13 pages)
 
 https://files.fasab.gov/pdffiles/handbook_tr_22.pdf
+
+
 To change dataset, in the file: extract_and_chunk.py, change PDF_PATH, CHUNK_SIZE and OVERLAP. Try to keep OVERLAP 20% of CHUNK_SIZE
