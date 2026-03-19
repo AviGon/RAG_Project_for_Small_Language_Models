@@ -1,7 +1,3 @@
-"""
-Interactive script to add questions to the evaluation dataset.
-"""
-
 import json
 import argparse
 from pathlib import Path
@@ -63,7 +59,6 @@ def add_question_interactive(dataset: dict):
     if not difficulty:
         difficulty = "medium"
     
-    # In document?
     in_doc_input = input("Is answer in document? (y/n) [y]: ").strip().lower()
     in_document = in_doc_input != 'n'
     
@@ -95,7 +90,7 @@ def add_question_interactive(dataset: dict):
     dataset['questions'].append(new_question)
     dataset['metadata']['total_questions'] = len(dataset['questions'])
     
-    print(f"\n✓ Question {question_id} added successfully!")
+    print(f"\nQuestion {question_id} added successfully!")
     return True
 
 
@@ -116,7 +111,7 @@ def add_question_from_args(dataset: dict, args):
     dataset['questions'].append(new_question)
     dataset['metadata']['total_questions'] = len(dataset['questions'])
     
-    print(f"✓ Question {question_id} added successfully!")
+    print(f"Question {question_id} added successfully!")
     return True
 
 
@@ -173,7 +168,7 @@ def main():
     if args.question and args.answer:
         add_question_from_args(dataset, args)
         save_dataset(dataset, str(dataset_path))
-        print(f"✓ Dataset saved to {dataset_path}")
+        print(f"Dataset saved to {dataset_path}")
         return
     
     # Interactive mode
@@ -184,7 +179,7 @@ def main():
         while True:
             if add_question_interactive(dataset):
                 save_dataset(dataset, str(dataset_path))
-                print(f"✓ Dataset saved to {dataset_path}")
+                print(f"Dataset saved to {dataset_path}")
             
             # Ask if want to add another
             another = input("\nAdd another question? (y/n) [n]: ").strip().lower()
