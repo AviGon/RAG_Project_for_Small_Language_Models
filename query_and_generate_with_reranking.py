@@ -1,12 +1,3 @@
-"""
-Query system with Cross-Encoder Reranking.
-Two-stage retrieval:
-  1. Dense retrieval: Get 20 candidates (FAISS)
-  2. Reranking: Rerank to best 5 (Cross-Encoder)
-
-NO TRAINING NEEDED - Works immediately!
-"""
-
 import faiss
 import pickle
 import numpy as np
@@ -14,57 +5,28 @@ from sentence_transformers import SentenceTransformer, CrossEncoder
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-# ==============================
-# CONFIG
-# ==============================
 FAISS_INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
 
 EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 LLM_MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
 
-# ============================================
-# RERANKING SETTINGS
-# ============================================
 RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-INITIAL_K = 20  # Retrieve more candidates from FAISS
-FINAL_K = 5     # Rerank to best 5
-# ============================================
+INITIAL_K = 20
+FINAL_K = 5
 
 MAX_NEW_TOKENS = 300
 
-
-# ==============================
-# Load FAISS + Metadata
-# ==============================
-print("Loading FAISS index...")
 index = faiss.read_index(FAISS_INDEX_FILE)
 
-print("Loading metadata...")
 with open(METADATA_FILE, "rb") as f:
     chunks = pickle.load(f)
 
 
-# ==============================
-# Load Embedding Model
-# ==============================
-print("Loading embedding model...")
 embed_model = SentenceTransformer(EMBED_MODEL_NAME)
 
-
-# ============================================
-# Load Cross-Encoder for Reranking
-# ============================================
-print("Loading cross-encoder for reranking...")
 reranker = CrossEncoder(RERANKER_MODEL)
-print("✓ Reranker loaded")
-# ============================================
 
-
-# ==============================
-# Load Phi-3
-# ==============================
-print("Loading Phi-3 model...")
 tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
 
 model = AutoModelForCausalLM.from_pretrained(
@@ -74,9 +36,6 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 
-# ==============================
-# Retrieval with Reranking
-# ==============================
 def retrieve_context(query, initial_k=INITIAL_K, final_k=FINAL_K):
     """
     Two-stage retrieval:
@@ -112,14 +71,11 @@ def retrieve_context(query, initial_k=INITIAL_K, final_k=FINAL_K):
     top_chunks = [candidate_chunks[i] for i in ranked_indices[:final_k]]
     top_scores = [rerank_scores[i] for i in ranked_indices[:final_k]]
     
-    print(f"✓ Reranking complete\n")
+    print(f"Reranking complete\n")
     
     return top_chunks, top_scores
 
 
-# ==============================
-# Prompt Builder
-# ==============================
 def build_prompt(query, contexts):
     # Number the contexts for better reference
     context_text = "\n\n".join([
@@ -127,7 +83,6 @@ def build_prompt(query, contexts):
         for i, ctx in enumerate(contexts)
     ])
 
-    # IMPROVED PROMPT - More strict instructions
     prompt = f"""<|system|>
 You are a precise assistant that answers questions using ONLY the provided documents.
 
@@ -150,10 +105,6 @@ Answer based ONLY on the documents above:<|end|>
 """
     return prompt.strip()
 
-
-# ==============================
-# Generation
-# ==============================
 def generate_answer(prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
@@ -166,10 +117,6 @@ def generate_answer(prompt):
 
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-
-# ==============================
-# MAIN LOOP
-# ==============================
 if __name__ == "__main__":
     print("\n" + "="*60)
     print("RAG System with Cross-Encoder Reranking")
@@ -199,13 +146,6 @@ if __name__ == "__main__":
         print("\nConstructed Prompt:\n")
         print(prompt[:1500])
         print("\n")
-
-        # Optional manual override
-        use_custom = input("Do you want to modify the prompt? (y/n): ")
-
-        if use_custom.lower() == "y":
-            print("Enter your custom prompt below:")
-            prompt = input()
 
         # Generate answer
         print("\nGenerating answer...\n")

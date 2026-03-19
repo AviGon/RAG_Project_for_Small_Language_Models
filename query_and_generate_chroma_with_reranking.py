@@ -1,8 +1,3 @@
-"""
-Simple ChromaDB query with reranking.
-Added: Relevance check to detect when question is not answerable.
-"""
-
 import chromadb
 from chromadb.utils import embedding_functions
 from sentence_transformers import CrossEncoder
@@ -10,9 +5,6 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import numpy as np
 
-# ==============================
-# CONFIG
-# ==============================
 COLLECTION_NAME = "handbook"
 EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 LLM_MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
@@ -23,17 +15,8 @@ FINAL_K = 5
 
 MAX_NEW_TOKENS = 200
 
-# ============================================
-# RELEVANCE THRESHOLD
-# If best reranking score is below this, chunks are likely irrelevant
 RELEVANCE_THRESHOLD = -5.0
-# ============================================
 
-
-# ==============================
-# Load Everything
-# ==============================
-print("Loading ChromaDB...")
 client = chromadb.PersistentClient(path="./chroma_db")
 
 embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
@@ -47,10 +30,8 @@ collection = client.get_collection(
 
 print(f"Collection loaded with {collection.count()} documents")
 
-print("Loading cross-encoder...")
 reranker = CrossEncoder(RERANKER_MODEL)
 
-print("Loading Phi-3...")
 tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(
     LLM_MODEL_NAME,
@@ -58,12 +39,6 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto"
 )
 
-print("✓ Ready!\n")
-
-
-# ==============================
-# Retrieve with Reranking
-# ==============================
 def retrieve_context(query, initial_k=INITIAL_K, final_k=FINAL_K):
     # Stage 1: Get candidates from ChromaDB
     results = collection.query(
@@ -83,10 +58,6 @@ def retrieve_context(query, initial_k=INITIAL_K, final_k=FINAL_K):
     
     return top_chunks, top_scores
 
-
-# ==============================
-# Simple Prompt
-# ==============================
 def build_prompt(query, contexts):
     context_text = "\n\n".join(contexts)
     
@@ -101,10 +72,6 @@ Answer:"""
     
     return prompt
 
-
-# ==============================
-# Generate Answer
-# ==============================
 def generate_answer(prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
@@ -124,10 +91,6 @@ def generate_answer(prompt):
     
     return answer
 
-
-# ==============================
-# MAIN
-# ==============================
 if __name__ == "__main__":
     print("="*60)
     print("ChromaDB RAG with Reranking (Simple Version)")
@@ -144,13 +107,10 @@ if __name__ == "__main__":
         print("\nRetrieving and reranking...")
         contexts, scores = retrieve_context(query)
         
-        # ============================================
-        # CHECK RELEVANCE
-        # ============================================
         best_score = scores[0] if scores else -999
         
         if best_score < RELEVANCE_THRESHOLD:
-            print(f"\n⚠️  No relevant information found (best score: {best_score:.2f})")
+            print(f"\nNo relevant information found (best score: {best_score:.2f})")
             print("The question doesn't seem to relate to the document content.\n")
             
             print("="*60)
@@ -160,7 +120,6 @@ if __name__ == "__main__":
             print("This question is outside the scope of the handbook.")
             print("\n" + "="*60 + "\n")
             continue
-        # ============================================
         
         # Show what was retrieved
         print("\nTop chunks:")
@@ -170,7 +129,7 @@ if __name__ == "__main__":
         
         # Generate answer
         prompt = build_prompt(query, contexts)
-        print("\nGenerating answer...\n")
+        print("\nGenerating answer\n")
         answer = generate_answer(prompt)
         
         # Show answer

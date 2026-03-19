@@ -21,7 +21,7 @@ if __name__ == "__main__":
     embeddings = model.encode(
         chunks,
         show_progress_bar=True,
-        normalize_embeddings=True  # IMPORTANT for cosine similarity
+        normalize_embeddings=True
     )
 
     embeddings = np.array(embeddings)

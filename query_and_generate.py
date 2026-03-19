@@ -5,9 +5,6 @@ from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-# ==============================
-# CONFIG
-# ==============================
 FAISS_INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
 
@@ -18,28 +15,15 @@ TOP_K = 5
 MAX_NEW_TOKENS = 300
 
 
-# ==============================
-# Load FAISS + Metadata
-# ==============================
-print("Loading FAISS index...")
 index = faiss.read_index(FAISS_INDEX_FILE)
 
-print("Loading metadata...")
 with open(METADATA_FILE, "rb") as f:
     chunks = pickle.load(f)
 
 
-# ==============================
-# Load Embedding Model
-# ==============================
-print("Loading embedding model...")
 embed_model = SentenceTransformer(EMBED_MODEL_NAME)
 
 
-# ==============================
-# Load Phi-3
-# ==============================
-print("Loading Phi-3 model...")
 tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
 
 model = AutoModelForCausalLM.from_pretrained(
@@ -49,9 +33,6 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 
 
-# ==============================
-# Retrieval
-# ==============================
 def retrieve_context(query, k=TOP_K):
     query_embedding = embed_model.encode(
         [query],
@@ -66,9 +47,6 @@ def retrieve_context(query, k=TOP_K):
     return retrieved_chunks
 
 
-# ==============================
-# Prompt Builder
-# ==============================
 def build_prompt(query, contexts):
     context_text = "\n\n".join(contexts)
 
@@ -88,9 +66,6 @@ Answer:
     return prompt.strip()
 
 
-# ==============================
-# Generation
-# ==============================
 def generate_answer(prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
@@ -104,9 +79,6 @@ def generate_answer(prompt):
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 
-# ==============================
-# MAIN LOOP
-# ==============================
 if __name__ == "__main__":
     print("\nRAG System Ready. Type 'exit' to quit.\n")
 
@@ -121,26 +93,18 @@ if __name__ == "__main__":
 
         print("\nRetrieved Context Chunks:\n")
         for i, chunk in enumerate(contexts):
-            print(f"--- Chunk {i+1} ---")
+            print(f"Chunk {i+1}")
             print(chunk[:500])  # show first 500 chars
             print("\n")
 
         # Step 2: Build prompt
         prompt = build_prompt(user_query, contexts)
 
-        print("\nConstructed Prompt:\n")
+        print("\nThe Constructed Prompt is:\n")
         print(prompt[:1500])  # show preview
         print("\n")
 
-        # Optional manual override
-        use_custom = input("Do you want to modify the prompt? (y/n): ")
-
-        if use_custom.lower() == "y":
-            print("Enter your custom prompt below:")
-            prompt = input()
-
-        # Step 3: Generate answer
-        print("\nGenerating answer...\n")
+        print("\nGenerating answer\n")
         answer = generate_answer(prompt)
 
         print("\nFinal Answer:\n")

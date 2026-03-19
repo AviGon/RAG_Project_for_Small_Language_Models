@@ -24,12 +24,12 @@ if __name__ == "__main__":
         metadata={"hnsw:space": "cosine"}
     )
     
-    print("Loading chunks...")
+    print("Loading chunks")
     with open(CHUNKS_FILE, "rb") as f:
         chunks = pickle.load(f)
     
-    print(f"Adding {len(chunks)} chunks to ChromaDB...")
-    print("(This will generate embeddings automatically...)")
+    print(f"Adding {len(chunks)} chunks to ChromaDB")
+    print("This will generate embeddings automatically")
     
     # Add documents - ChromaDB handles embedding generation!
     collection.add(
@@ -38,5 +38,4 @@ if __name__ == "__main__":
         metadatas=[{"chunk_index": i} for i in range(len(chunks))]
     )
     
-    print(f"✓ Collection now has {collection.count()} documents")
-    print("✓ Done! ChromaDB is ready.")
+    print(f"Collection now has {collection.count()} documents")

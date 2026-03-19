@@ -1,12 +1,3 @@
-"""
-Tool-augmented RAG pipeline for small language models.
-
-This script demonstrates a lightweight "function calling" style flow:
-1) Route user query to a tool (calculator, datetime, corpus stats, web fetch/search) when appropriate
-2) Otherwise use document retrieval tool (FAISS top-k search)
-3) Compose final response with the SLM
-"""
-
 import ast
 import datetime as dt
 import operator as op
@@ -24,9 +15,6 @@ from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-# ==============================
-# CONFIG
-# ==============================
 FAISS_INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
 
@@ -44,21 +32,13 @@ WEB_CHUNK_OVERLAP = 150
 WEB_TIMEOUT_SECS = 12
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36"
 
-
-# ==============================
-# Models + Index
-# ==============================
-print("Loading FAISS index...")
 index = faiss.read_index(FAISS_INDEX_FILE)
 
-print("Loading metadata...")
 with open(METADATA_FILE, "rb") as f:
     chunks = pickle.load(f)
 
-print("Loading embedding model...")
 embed_model = SentenceTransformer(EMBED_MODEL_NAME)
 
-print("Loading LLM...")
 tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(
     LLM_MODEL_NAME,
@@ -66,10 +46,6 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto",
 )
 
-
-# ==============================
-# Tooling
-# ==============================
 @dataclass
 class ToolDecision:
     name: str
@@ -135,7 +111,7 @@ _ALLOWED_UNARY_OPS = {ast.USub: op.neg, ast.UAdd: op.pos}
 def _safe_eval_ast(node: ast.AST) -> float:
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return float(node.value)
-    if isinstance(node, ast.Num):  # py<3.8 compatibility
+    if isinstance(node, ast.Num):
         return float(node.n)
     if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_BIN_OPS:
         left = _safe_eval_ast(node.left)
@@ -337,12 +313,6 @@ def select_tool(query: str) -> ToolDecision:
 
 
 def run_tool(decision: ToolDecision) -> Tuple[str, List[str], str]:
-    """
-    Returns:
-      tool_output: textual output from non-RAG tools
-      contexts: retrieved contexts for RAG
-      effective_question: question to answer
-    """
     if decision.name == "current_datetime":
         return current_datetime(), [], "What is the current date and time?"
     if decision.name == "corpus_stats":

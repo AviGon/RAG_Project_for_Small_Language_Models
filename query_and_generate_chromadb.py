@@ -3,9 +3,6 @@ from chromadb.utils import embedding_functions
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-# ==============================
-# CONFIG
-# ==============================
 COLLECTION_NAME = "handbook"
 EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 LLM_MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
@@ -13,11 +10,6 @@ LLM_MODEL_NAME = "microsoft/Phi-3-mini-4k-instruct"
 TOP_K = 5
 MAX_NEW_TOKENS = 300
 
-
-# ==============================
-# Load ChromaDB
-# ==============================
-print("Loading ChromaDB...")
 client = chromadb.PersistentClient(path="./chroma_db")
 
 # Set up the same embedding function
@@ -32,11 +24,6 @@ collection = client.get_collection(
 
 print(f"Collection loaded with {collection.count()} documents")
 
-
-# ==============================
-# Load Phi-3
-# ==============================
-print("Loading Phi-3 model...")
 tokenizer = AutoTokenizer.from_pretrained(LLM_MODEL_NAME)
 
 model = AutoModelForCausalLM.from_pretrained(
@@ -45,10 +32,6 @@ model = AutoModelForCausalLM.from_pretrained(
     device_map="auto"
 )
 
-
-# ==============================
-# Retrieval (MUCH SIMPLER!)
-# ==============================
 def retrieve_context(query, k=TOP_K):
     # ChromaDB does embedding + search in one step!
     results = collection.query(
@@ -57,10 +40,6 @@ def retrieve_context(query, k=TOP_K):
     )
     return results['documents'][0]
 
-
-# ==============================
-# Prompt Builder
-# ==============================
 def build_prompt(query, contexts):
     context_text = "\n\n".join(contexts)
 
@@ -79,10 +58,6 @@ Answer:
 """
     return prompt.strip()
 
-
-# ==============================
-# Generation
-# ==============================
 def generate_answer(prompt):
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
@@ -95,10 +70,6 @@ def generate_answer(prompt):
 
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-
-# ==============================
-# MAIN LOOP
-# ==============================
 if __name__ == "__main__":
     print("\nRAG System Ready. Type 'exit' to quit.\n")
 
@@ -113,7 +84,7 @@ if __name__ == "__main__":
 
         print("\nRetrieved Context Chunks:\n")
         for i, chunk in enumerate(contexts):
-            print(f"--- Chunk {i+1} ---")
+            print(f"Chunk {i+1}")
             print(chunk[:500])  # show first 500 chars
             print("\n")
 
@@ -123,13 +94,6 @@ if __name__ == "__main__":
         print("\nConstructed Prompt:\n")
         print(prompt[:1500])  # show preview
         print("\n")
-
-        # Optional manual override
-        use_custom = input("Do you want to modify the prompt? (y/n): ")
-
-        if use_custom.lower() == "y":
-            print("Enter your custom prompt below:")
-            prompt = input()
 
         # Step 3: Generate answer
         print("\nGenerating answer...\n")
